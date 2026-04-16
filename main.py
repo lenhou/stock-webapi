@@ -49,3 +49,11 @@ async def get_stock(stock_id: str):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
+    
+    # 確保這部分在 main.py 最後
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    # Render 會提供環境變數 PORT，如果沒有則預設 8000
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
