@@ -1,6 +1,8 @@
 import yfinance as yf
 from fastapi import FastAPI, HTTPException
 from datetime import datetime
+from fastapi.staticfiles import StaticFiles  # 新增
+from fastapi.responses import FileResponse   # 新增
 
 app = FastAPI(title="Taiwan Stock API")
 
@@ -28,6 +30,14 @@ def fetch_stock_data(stock_id: str):
                 })
             return {"stock_id": stock_id, "company_name": name, "history": history_list}
     return None
+
+# 將 static 資料夾掛載到 /static 路徑
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 新增一個首頁路由，讓使用者打開 127.0.0.1:8000 就能看到網頁
+@app.get("/", include_in_schema=False)
+async def serve_index():
+    return FileResponse('static/index.html')
 
 @app.get("/api/stock/{stock_id}")
 async def get_stock(stock_id: str):

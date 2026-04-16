@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股行情查詢系統</title>
+    <style>
+        /* 基礎樣式 */
+        body { 
+            font-family: "Microsoft JhengHei", -apple-system, sans-serif; 
+            background-color: #f4f7f6; 
+            margin: 0; 
+            padding: 20px;
+            display: flex; 
+            justify-content: center; 
+        }
+        .container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 900px; 
+        }
+        h2 { color: #333; text-align: center; margin-top: 10px; }
+        
+        /* 搜尋框響應式佈局 */
+        .search-box { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 25px; 
+            justify-content: center; 
+        }
+        input { 
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 6px; 
+            flex: 1; /* 手機上自動伸展 */
+            max-width: 250px; 
+            font-size: 16px; 
+        }
+        button { 
+            padding: 12px 20px; 
+            background-color: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            white-space: nowrap;
+        }
+
+        /* 股票名稱樣式 */
+        .stock-info { 
+            margin-bottom: 15px; 
+            font-weight: bold; 
+            color: #007bff; 
+            font-size: 1.2rem; 
+            text-align: center; 
+        }
+
+        /* 重點：讓表格在手機上可以橫向滑動 */
+        .table-container {
+            width: 100%;
+            overflow-x: auto; /* 超出寬度時顯示捲軸 */
+            -webkit-overflow-scrolling: touch; /* 優化手機滑動手感 */
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            min-width: 500px; /* 確保在小螢幕上不會擠壓太扁 */
+        }
+        th, td { border: 1px solid #eee; padding: 12px 8px; text-align: center; }
+        th { background-color: #f8f9fa; color: #555; }
+        tr:nth-child(even) { background-color: #fafafa; }
+        
+        /* 手機版微調 */
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .container { padding: 15px; }
+            h2 { font-size: 1.4rem; }
+            input { font-size: 14px; }
+            button { padding: 10px 15px; font-size: 14px; }
+            th, td { padding: 8px 4px; font-size: 13px; }
+        }
+        
+        .error { color: #dc3545; text-align: center; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📈 台股行情查詢</h2>
+        
+        <div class="search-box">
+            <input type="number" id="stockId" placeholder="輸入代碼 (2330)" inputmode="numeric">
+            <button onclick="queryStock()">查詢</button>
+        </div>
+
+        <div id="infoDisplay" class="stock-info"></div>
+        
+        <div class="table-container">
+            <div id="resultArea">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        async function queryStock() {
+            const stockId = document.getElementById('stockId').value;
+            const resultArea = document.getElementById('resultArea');
+            const infoDisplay = document.getElementById('infoDisplay');
+            
+            if (!stockId) return;
+
+            infoDisplay.innerText = "查詢中...";
+            resultArea.innerHTML = "";
+
+            try {
+                const response = await fetch(`/api/stock/${stockId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    infoDisplay.innerText = `${data.company_name} (${data.stock_id})`;
+                    
+                    let tableHtml = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>開/收盤</th>
+                                    <th>最高/低</th>
+                                    <th>成交量</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    data.history.forEach(item => {
+                        tableHtml += `
+                            <tr>
+                                <td>${item.date.substring(5)}</td> <td>${item.open} / ${item.close}</td>
+                                <td><span style="color:red">${item.high}</span> / <span style="color:green">${item.low}</span></td>
+                                <td>${(item.volume / 1000).toFixed(0)}K</td> </tr>
+                        `;
+                    });
+
+                    tableHtml += `</tbody></table>`;
+                    resultArea.innerHTML = tableHtml;
+                } else {
+                    infoDisplay.innerText = "";
+                    resultArea.innerHTML = `<p class="error">找不到代碼: ${stockId}</p>`;
+                }
+            } catch (error) {
+                resultArea.innerHTML = `<p class="error">API 連線失敗</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
