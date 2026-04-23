@@ -1,15 +1,14 @@
 import yfinance as yf
 import pandas as pd
 from fastapi import FastAPI
-from fastapi.staticfiles import Mount
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles # 修改這裡
 import os
 
 app = FastAPI()
 
-# 確保 static 資料夾存在以掛載前端頁面 [cite: 2, 23]
+# 修正後的掛載方式
 if os.path.exists("static"):
-    app.mount("/static", Mount(directory="static"), name="static")
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 def get_sentiment(df):
     """根據股價與 MA20 的關係判斷走勢 [cite: 34]"""
