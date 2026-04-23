@@ -2,64 +2,126 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>股票趨勢分析 APP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票趨勢分析</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        .result-box { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-        .sentiment-badge { font-weight: bold; padding: 5px 10px; border-radius: 4px; color: white; }
-        textarea { width: 100%; height: 150px; margin-top: 10px; }
-        .btn-copy { background-color: #007bff; color: white; border: none; padding: 8px 16px; cursor: pointer; margin-top: 5px; }
+        :root {
+            --primary-color: #007bff;
+            --bg-color: #f8f9fa;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background-color: var(--bg-color);
+            margin: 0; padding: 20px; color: #333;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .container { width: 100%; max-width: 500px; }
+        h1 { text-align: center; font-size: 1.5rem; margin-bottom: 20px; }
+        
+        /* 搜尋區塊 */
+        .search-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { 
+            flex: 1; padding: 12px; border: 1px solid #ddd; 
+            border-radius: 8px; font-size: 16px; /* 防止 iOS 自動放大 */
+        }
+        button { 
+            padding: 10px 20px; background: var(--primary-color); 
+            color: white; border: none; border-radius: 8px; cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* 結果卡片 */
+        .card { 
+            background: white; padding: 20px; border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; margin-bottom: 20px;
+        }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 1.1rem; }
+        .sentiment-tag { 
+            padding: 4px 12px; border-radius: 20px; color: white; font-weight: bold; font-size: 0.9rem;
+        }
+
+        /* 數據區 */
+        textarea { 
+            width: 100%; height: 120px; border: 1px solid #eee; border-radius: 8px;
+            background: #fafafa; font-family: monospace; padding: 10px;
+            box-sizing: border-box; resize: none; margin-top: 10px;
+        }
+        .copy-btn { 
+            width: 100%; margin-top: 10px; background: #28a745; 
+        }
     </style>
 </head>
 <body>
-    <h1>股票趨勢分析</h1>
-    <input type="text" id="stockSymbol" placeholder="例如: 2330 或 00981A">
-    <button onclick="queryStock()">查詢走勢</button>
 
-    <div id="resultArea" class="result-box" style="display:none;">
-        <h3>股票代碼：<span id="displaySymbol"></span></h3>
-        <p>目前價格：<span id="displayPrice"></span></p>
-        <p>目前走勢：<span id="displaySentiment" class="sentiment-badge"></span></p>
+    <div class="container">
+        <h1>📈 股票趨勢分析</h1>
         
-        <h4>近期數據匯出：</h4>
-        <textarea id="copyTextbox" readonly></textarea>
-        <button class="btn-copy" onclick="copyToClipboard()">複製數據內容</button>
+        <div class="search-group">
+            <input type="text" id="stockSymbol" placeholder="輸入代碼 (如: 2330)">
+            <button onclick="queryStock()">查詢</button>
+        </div>
+
+        <div id="resultCard" class="card">
+            <div class="info-row">
+                <span>股票代碼</span>
+                <strong id="displaySymbol"></strong>
+            </div>
+            <div class="info-row">
+                <span>目前價格</span>
+                <strong id="displayPrice"></strong>
+            </div>
+            <div class="info-row">
+                <span>趨勢走向</span>
+                <span id="displaySentiment" class="sentiment-tag"></span>
+            </div>
+            
+            <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+            
+            <label style="font-size: 0.9rem; color: #666;">近期數據 (可直接複製):</label>
+            <textarea id="copyTextbox" readonly></textarea>
+            <button class="copy-btn" onclick="copyToClipboard()">一鍵複製數據</button>
+        </div>
     </div>
 
     <script>
         async function queryStock() {
             const symbol = document.getElementById('stockSymbol').value;
-            const res = await fetch(`/api/stock/${symbol}`);
-            const data = await res.json();
+            if (!symbol) return alert("請輸入股票代碼");
 
-            if (data.error) {
-                alert(data.error);
-                return;
+            try {
+                const res = await fetch(`/api/stock/${symbol}`);
+                const data = await res.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // 顯示卡片並填入資料
+                document.getElementById('resultCard').style.display = 'block';
+                document.getElementById('displaySymbol').innerText = data.symbol;
+                document.getElementById('displayPrice').innerText = `$${data.current_price}`;
+                
+                const sentimentEl = document.getElementById('displaySentiment');
+                sentimentEl.innerText = data.sentiment;
+                sentimentEl.style.backgroundColor = data.sentiment_color;
+
+                // 準備複製內容
+                let rawText = "日期\t收盤價\n";
+                data.history.forEach(item => {
+                    rawText += `${item.date}\t${item.close}\n`;
+                });
+                document.getElementById('copyTextbox').value = rawText;
+            } catch (e) {
+                alert("連線失敗，請稍後再試");
             }
-
-            // 顯示結果與顏色 
-            document.getElementById('resultArea').style.display = 'block';
-            document.getElementById('displaySymbol').innerText = data.symbol;
-            document.getElementById('displayPrice').innerText = data.current_price;
-            
-            const sentimentEl = document.getElementById('displaySentiment');
-            sentimentEl.innerText = data.sentiment;
-            sentimentEl.style.backgroundColor = data.sentiment_color;
-
-            // 格式化純文字到 Textbox [cite: 14]
-            let rawText = "日期\t收盤價\n";
-            data.history.forEach(item => {
-                rawText += `${item.date}\t${item.close}\n`;
-            });
-            document.getElementById('copyTextbox').value = rawText;
         }
 
         function copyToClipboard() {
             const textBox = document.getElementById('copyTextbox');
             textBox.select();
-            textBox.setSelectionRange(0, 99999); // 相容手機 [cite: 14]
             document.execCommand("copy");
-            alert("已複製到剪貼簿！");
+            alert("數據已成功複製到剪貼簿！");
         }
     </script>
 </body>
