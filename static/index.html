@@ -24,7 +24,7 @@
         }
         h2 { color: #333; text-align: center; margin-top: 10px; }
         
-        /* 搜尋框響應式佈局 */
+        /* 搜尋框佈局 */
         .search-box { 
             display: flex; 
             gap: 10px; 
@@ -35,7 +35,7 @@
             padding: 12px; 
             border: 1px solid #ddd; 
             border-radius: 6px; 
-            flex: 1; /* 手機上自動伸展 */
+            flex: 1; 
             max-width: 250px; 
             font-size: 16px; 
         }
@@ -50,7 +50,6 @@
             white-space: nowrap;
         }
 
-        /* 股票名稱樣式 */
         .stock-info { 
             margin-bottom: 15px; 
             font-weight: bold; 
@@ -59,29 +58,53 @@
             text-align: center; 
         }
 
-        /* 重點：讓表格在手機上可以橫向滑動 */
+        /* 表格樣式與響應式滑動 */
         .table-container {
             width: 100%;
-            overflow-x: auto; /* 超出寬度時顯示捲軸 */
-            -webkit-overflow-scrolling: touch; /* 優化手機滑動手感 */
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         table { 
             width: 100%; 
             border-collapse: collapse; 
-            min-width: 500px; /* 確保在小螢幕上不會擠壓太扁 */
+            min-width: 500px; 
         }
         th, td { border: 1px solid #eee; padding: 12px 8px; text-align: center; }
         th { background-color: #f8f9fa; color: #555; }
         tr:nth-child(even) { background-color: #fafafa; }
+
+        /* 文字輸出區塊樣式 */
+        .output-section {
+            margin-top: 30px;
+            border-top: 2px dashed #eee;
+            padding-top: 20px;
+        }
+        .output-section h3 { font-size: 1rem; color: #666; margin-bottom: 10px; }
+        textarea { 
+            width: 100%; 
+            height: 150px; 
+            padding: 12px; 
+            border-radius: 8px; 
+            border: 1px solid #ccc; 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 14px;
+            background-color: #fafafa;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        .copy-btn {
+            background-color: #007bff;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .copy-btn:hover { background-color: #0056b3; }
         
         /* 手機版微調 */
         @media (max-width: 600px) {
             body { padding: 10px; }
             .container { padding: 15px; }
             h2 { font-size: 1.4rem; }
-            input { font-size: 14px; }
-            button { padding: 10px 15px; font-size: 14px; }
             th, td { padding: 8px 4px; font-size: 13px; }
         }
         
@@ -100,8 +123,13 @@
         <div id="infoDisplay" class="stock-info"></div>
         
         <div class="table-container">
-            <div id="resultArea">
-                </div>
+            <div id="resultArea"></div>
+        </div>
+
+        <div class="output-section">
+            <h3>📋 純文字結果 (適合貼入其他程式)</h3>
+            <textarea id="rawOutput" readonly placeholder="查詢成功後，文字結果會顯示在這裡..."></textarea>
+            <button class="copy-btn" onclick="copyToClipboard()">複製文字內容</button>
         </div>
     </div>
 
@@ -110,49 +138,84 @@
             const stockId = document.getElementById('stockId').value;
             const resultArea = document.getElementById('resultArea');
             const infoDisplay = document.getElementById('infoDisplay');
+            const rawOutput = document.getElementById('rawOutput');
             
             if (!stockId) return;
 
             infoDisplay.innerText = "查詢中...";
             resultArea.innerHTML = "";
+            rawOutput.value = "";
 
             try {
                 const response = await fetch(`/api/stock/${stockId}`);
                 const data = await response.json();
 
                 if (response.ok) {
+                    // 1. 更新股票名稱顯示
                     infoDisplay.innerText = `${data.company_name} (${data.stock_id})`;
                     
+                    // 2. 渲染 HTML 表格
                     let tableHtml = `
                         <table>
                             <thead>
                                 <tr>
                                     <th>日期</th>
-                                    <th>開/收盤</th>
-                                    <th>最高/低</th>
+                                    <th>開盤 / 收盤</th>
+                                    <th>最高 / 最低</th>
                                     <th>成交量</th>
                                 </tr>
                             </thead>
                             <tbody>
                     `;
 
+                    // 3. 同時準備純文字格式
+                    let rawText = `股票代碼：${data.stock_id}\n`;
+                    rawText += `公司名稱：${data.company_name}\n`;
+                    rawText += `------------------------------------------\n`;
+                    rawText += `日期\t開盤\t最高\t最低\t收盤\t成交量\n`;
+
                     data.history.forEach(item => {
+                        // 填充表格
                         tableHtml += `
                             <tr>
-                                <td>${item.date.substring(5)}</td> <td>${item.open} / ${item.close}</td>
+                                <td>${item.date.substring(5)}</td> 
+                                <td>${item.open} / ${item.close}</td>
                                 <td><span style="color:red">${item.high}</span> / <span style="color:green">${item.low}</span></td>
-                                <td>${(item.volume / 1000).toFixed(0)}K</td> </tr>
+                                <td>${(item.volume / 1000).toFixed(0)}K</td> 
+                            </tr>
                         `;
+                        // 填充純文字
+                        rawText += `${item.date}\t${item.open}\t${item.high}\t${item.low}\t${item.close}\t${item.volume}\n`;
                     });
 
                     tableHtml += `</tbody></table>`;
                     resultArea.innerHTML = tableHtml;
+                    rawOutput.value = rawText;
+
                 } else {
                     infoDisplay.innerText = "";
                     resultArea.innerHTML = `<p class="error">找不到代碼: ${stockId}</p>`;
                 }
             } catch (error) {
                 resultArea.innerHTML = `<p class="error">API 連線失敗</p>`;
+            }
+        }
+
+        // 複製到剪貼簿功能
+        function copyToClipboard() {
+            const textarea = document.getElementById('rawOutput');
+            if (!textarea.value) {
+                alert('沒有內容可以複製！');
+                return;
+            }
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // 支援手機
+            
+            try {
+                document.execCommand('copy');
+                alert('已成功複製到剪貼簿！');
+            } catch (err) {
+                alert('複製失敗，請手動選取複製');
             }
         }
     </script>
