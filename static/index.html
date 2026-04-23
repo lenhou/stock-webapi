@@ -2,221 +2,64 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股行情查詢系統</title>
+    <title>股票趨勢分析 APP</title>
     <style>
-        /* 基礎樣式 */
-        body { 
-            font-family: "Microsoft JhengHei", -apple-system, sans-serif; 
-            background-color: #f4f7f6; 
-            margin: 0; 
-            padding: 20px;
-            display: flex; 
-            justify-content: center; 
-        }
-        .container { 
-            background: white; 
-            padding: 20px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-            width: 100%; 
-            max-width: 900px; 
-        }
-        h2 { color: #333; text-align: center; margin-top: 10px; }
-        
-        /* 搜尋框佈局 */
-        .search-box { 
-            display: flex; 
-            gap: 10px; 
-            margin-bottom: 25px; 
-            justify-content: center; 
-        }
-        input { 
-            padding: 12px; 
-            border: 1px solid #ddd; 
-            border-radius: 6px; 
-            flex: 1; 
-            max-width: 250px; 
-            font-size: 16px; 
-        }
-        button { 
-            padding: 12px 20px; 
-            background-color: #28a745; 
-            color: white; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-size: 16px; 
-            white-space: nowrap;
-        }
-
-        .stock-info { 
-            margin-bottom: 15px; 
-            font-weight: bold; 
-            color: #007bff; 
-            font-size: 1.2rem; 
-            text-align: center; 
-        }
-
-        /* 表格樣式與響應式滑動 */
-        .table-container {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            min-width: 500px; 
-        }
-        th, td { border: 1px solid #eee; padding: 12px 8px; text-align: center; }
-        th { background-color: #f8f9fa; color: #555; }
-        tr:nth-child(even) { background-color: #fafafa; }
-
-        /* 文字輸出區塊樣式 */
-        .output-section {
-            margin-top: 30px;
-            border-top: 2px dashed #eee;
-            padding-top: 20px;
-        }
-        .output-section h3 { font-size: 1rem; color: #666; margin-bottom: 10px; }
-        textarea { 
-            width: 100%; 
-            height: 150px; 
-            padding: 12px; 
-            border-radius: 8px; 
-            border: 1px solid #ccc; 
-            font-family: 'Courier New', Courier, monospace; 
-            font-size: 14px;
-            background-color: #fafafa;
-            box-sizing: border-box;
-            resize: vertical;
-        }
-        .copy-btn {
-            background-color: #007bff;
-            width: 100%;
-            margin-top: 10px;
-        }
-        .copy-btn:hover { background-color: #0056b3; }
-        
-        /* 手機版微調 */
-        @media (max-width: 600px) {
-            body { padding: 10px; }
-            .container { padding: 15px; }
-            h2 { font-size: 1.4rem; }
-            th, td { padding: 8px 4px; font-size: 13px; }
-        }
-        
-        .error { color: #dc3545; text-align: center; font-weight: bold; }
+        body { font-family: sans-serif; margin: 20px; }
+        .result-box { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .sentiment-badge { font-weight: bold; padding: 5px 10px; border-radius: 4px; color: white; }
+        textarea { width: 100%; height: 150px; margin-top: 10px; }
+        .btn-copy { background-color: #007bff; color: white; border: none; padding: 8px 16px; cursor: pointer; margin-top: 5px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>📈 台股行情查詢</h2>
-        
-		<div class="search-box">
-			<input type="text" id="stockId" placeholder="輸入代碼 (例如: 00981A)" style="text-transform: uppercase;">
-			<button onclick="queryStock()">查詢</button>
-		</div>
+    <h1>股票趨勢分析</h1>
+    <input type="text" id="stockSymbol" placeholder="例如: 2330 或 00981A">
+    <button onclick="queryStock()">查詢走勢</button>
 
-        <div id="infoDisplay" class="stock-info"></div>
+    <div id="resultArea" class="result-box" style="display:none;">
+        <h3>股票代碼：<span id="displaySymbol"></span></h3>
+        <p>目前價格：<span id="displayPrice"></span></p>
+        <p>目前走勢：<span id="displaySentiment" class="sentiment-badge"></span></p>
         
-        <div class="table-container">
-            <div id="resultArea"></div>
-        </div>
-
-        <div class="output-section">
-            <h3>📋 純文字結果 (適合貼入其他程式)</h3>
-            <textarea id="rawOutput" readonly placeholder="查詢成功後，文字結果會顯示在這裡..."></textarea>
-            <button class="copy-btn" onclick="copyToClipboard()">複製文字內容</button>
-        </div>
+        <h4>近期數據匯出：</h4>
+        <textarea id="copyTextbox" readonly></textarea>
+        <button class="btn-copy" onclick="copyToClipboard()">複製數據內容</button>
     </div>
 
     <script>
         async function queryStock() {
-            const stockId = document.getElementById('stockId').value;
-            const resultArea = document.getElementById('resultArea');
-            const infoDisplay = document.getElementById('infoDisplay');
-            const rawOutput = document.getElementById('rawOutput');
-            
-            if (!stockId) return;
+            const symbol = document.getElementById('stockSymbol').value;
+            const res = await fetch(`/api/stock/${symbol}`);
+            const data = await res.json();
 
-            infoDisplay.innerText = "查詢中...";
-            resultArea.innerHTML = "";
-            rawOutput.value = "";
-
-            try {
-                const response = await fetch(`/api/stock/${stockId}`);
-                const data = await response.json();
-
-                if (response.ok) {
-                    // 1. 更新股票名稱顯示
-                    infoDisplay.innerText = `${data.company_name} (${data.stock_id})`;
-                    
-                    // 2. 渲染 HTML 表格
-                    let tableHtml = `
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>日期</th>
-                                    <th>開盤 / 收盤</th>
-                                    <th>最高 / 最低</th>
-                                    <th>成交量</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-
-                    // 3. 同時準備純文字格式
-                    let rawText = `股票代碼：${data.stock_id}\n`;
-                    rawText += `公司名稱：${data.company_name}\n`;
-                    rawText += `------------------------------------------\n`;
-                    rawText += `日期\t開盤\t最高\t最低\t收盤\t成交量\n`;
-
-                    data.history.forEach(item => {
-                        // 填充表格
-                        tableHtml += `
-                            <tr>
-                                <td>${item.date.substring(5)}</td> 
-                                <td>${item.open} / ${item.close}</td>
-                                <td><span style="color:red">${item.high}</span> / <span style="color:green">${item.low}</span></td>
-                                <td>${(item.volume / 1000).toFixed(0)}K</td> 
-                            </tr>
-                        `;
-                        // 填充純文字
-                        rawText += `${item.date}\t${item.open}\t${item.high}\t${item.low}\t${item.close}\t${item.volume}\n`;
-                    });
-
-                    tableHtml += `</tbody></table>`;
-                    resultArea.innerHTML = tableHtml;
-                    rawOutput.value = rawText;
-
-                } else {
-                    infoDisplay.innerText = "";
-                    resultArea.innerHTML = `<p class="error">找不到代碼: ${stockId}</p>`;
-                }
-            } catch (error) {
-                resultArea.innerHTML = `<p class="error">API 連線失敗</p>`;
-            }
-        }
-
-        // 複製到剪貼簿功能
-        function copyToClipboard() {
-            const textarea = document.getElementById('rawOutput');
-            if (!textarea.value) {
-                alert('沒有內容可以複製！');
+            if (data.error) {
+                alert(data.error);
                 return;
             }
-            textarea.select();
-            textarea.setSelectionRange(0, 99999); // 支援手機
+
+            // 顯示結果與顏色 
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('displaySymbol').innerText = data.symbol;
+            document.getElementById('displayPrice').innerText = data.current_price;
             
-            try {
-                document.execCommand('copy');
-                alert('已成功複製到剪貼簿！');
-            } catch (err) {
-                alert('複製失敗，請手動選取複製');
-            }
+            const sentimentEl = document.getElementById('displaySentiment');
+            sentimentEl.innerText = data.sentiment;
+            sentimentEl.style.backgroundColor = data.sentiment_color;
+
+            // 格式化純文字到 Textbox [cite: 14]
+            let rawText = "日期\t收盤價\n";
+            data.history.forEach(item => {
+                rawText += `${item.date}\t${item.close}\n`;
+            });
+            document.getElementById('copyTextbox').value = rawText;
+        }
+
+        function copyToClipboard() {
+            const textBox = document.getElementById('copyTextbox');
+            textBox.select();
+            textBox.setSelectionRange(0, 99999); // 相容手機 [cite: 14]
+            document.execCommand("copy");
+            alert("已複製到剪貼簿！");
         }
     </script>
 </body>

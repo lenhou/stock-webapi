@@ -1,55 +1,65 @@
 import yfinance as yf
-from fastapi import FastAPI, HTTPException
-from datetime import datetime
-from fastapi.staticfiles import StaticFiles  # 新增
-from fastapi.responses import FileResponse   # 新增
+import pandas as pd
+from fastapi import FastAPI
+from fastapi.staticfiles import Mount
+from fastapi.responses import HTMLResponse
+import os
 
-app = FastAPI(title="Taiwan Stock API")
+app = FastAPI()
 
-def fetch_stock_data(stock_id: str):
-    # 自動嘗試上市(.TW)與上櫃(.TWO)後綴
-    for suffix in [".TW", ".TWO"]:
-        ticker = yf.Ticker(f"{stock_id}{suffix}")
-        hist = ticker.history(period="7d")
-        if not hist.empty:
-            try:
-                name = ticker.info.get('longName') or ticker.info.get('shortName') or f"Stock {stock_id}"
-            except:
-                name = f"Stock {stock_id}"
-            
-            # 格式化數據
-            history_list = []
-            for date, row in hist.sort_index(ascending=False).iterrows():
-                history_list.append({
+# 確保 static 資料夾存在以掛載前端頁面 [cite: 2, 23]
+if os.path.exists("static"):
+    app.mount("/static", Mount(directory="static"), name="static")
+
+def get_sentiment(df):
+    """根據股價與 MA20 的關係判斷走勢 [cite: 34]"""
+    if len(df) < 20:
+        return "資料不足", "gray"
+    
+    # 計算 20日移動平均線 [cite: 29]
+    df['MA20'] = df['Close'].rolling(window=20).mean()
+    current_price = df['Close'].iloc[-1]
+    current_ma20 = df['MA20'].iloc[-1]
+    
+    if current_price > current_ma20:
+        return "樂觀 (多頭趨勢)", "green"
+    elif current_price < current_ma20:
+        return "悲觀 (空頭趨勢)", "red"
+    else:
+        return "盤整中", "orange"
+
+@app.get("/api/stock/{symbol}")
+async def get_stock(symbol: str):
+    # 強制轉大寫以支援 00981A 等代碼 [cite: 26]
+    symbol = symbol.upper()
+    tickers = [f"{symbol}.TW", f"{symbol}.TWO"]
+    
+    for t in tickers:
+        stock = yf.Ticker(t)
+        df = stock.history(period="3mo") # 抓取三個月資料以計算均線
+        
+        if not df.empty:
+            sentiment_text, color = get_sentiment(df)
+            # 格式化資料回傳給前端 [cite: 22]
+            history_data = []
+            for date, row in df.tail(10).iterrows():
+                history_data.append({
                     "date": date.strftime('%Y-%m-%d'),
-                    "open": round(row['Open'], 2),
-                    "high": round(row['High'], 2),
-                    "low": round(row['Low'], 2),
-                    "close": round(row['Close'], 2),
-                    "volume": int(row['Volume'])
+                    "close": round(row['Close'], 2)
                 })
-            return {"stock_id": stock_id, "company_name": name, "history": history_list}
-    return None
-
-# 將 static 資料夾掛載到 /static 路徑
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# 新增一個首頁路由，讓使用者打開 127.0.0.1:8000 就能看到網頁
-@app.get("/", include_in_schema=False)
-async def serve_index():
-    return FileResponse('static/index.html')
-
-@app.get("/api/stock/{stock_id}")
-async def get_stock(stock_id: str):
-    # 強制轉大寫再查詢
-    data = fetch_stock_data(stock_id.upper())
-    if not data:
-        raise HTTPException(status_code=404, detail="找不到該股票資料")
-    return data
+            
+            return {
+                "symbol": symbol,
+                "current_price": round(df['Close'].iloc[-1], 2),
+                "sentiment": sentiment_text,
+                "sentiment_color": color,
+                "history": history_data
+            }
+            
+    return {"error": "找不到股票代碼或抓取失敗"}
 
 if __name__ == "__main__":
     import uvicorn
-    import os
-    # 這樣寫能同時相容「本機電腦」與「任何雲端平台」
+    # 統一使用 0.0.0.0 配合環境變數，確保本機與雲端皆可連線 [cite: 6, 8, 21]
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
