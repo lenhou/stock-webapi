@@ -41,7 +41,8 @@ async def serve_index():
 
 @app.get("/api/stock/{stock_id}")
 async def get_stock(stock_id: str):
-    data = fetch_stock_data(stock_id)
+    # 強制轉大寫再查詢
+    data = fetch_stock_data(stock_id.upper())
     if not data:
         raise HTTPException(status_code=404, detail="找不到該股票資料")
     return data
