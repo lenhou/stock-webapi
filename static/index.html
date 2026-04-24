@@ -20,7 +20,7 @@
         .sentiment-badge { color: white; padding: 2px 10px; border-radius: 15px; font-size: 0.9em; }
         
         textarea { width: 100%; height: 150px; margin-top: 15px; font-family: monospace; font-size: 13px; padding: 10px; box-sizing: border-box; }
-        .copy-btn { width: 100%; background: #28a745; margin-top: 10px; }
+        .copy-btn { width: 100%; background: #28a745; margin-top: 10px; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; width: 100%; }
     </style>
 </head>
 <body>
@@ -37,6 +37,10 @@
             <div class="data-row"><span class="label">股票代碼</span><span class="value" id="resSymbol"></span></div>
             <div class="data-row"><span class="label">目前價格</span><span class="value" id="resPrice" style="font-size:1.2em; color:#007bff;"></span></div>
             <div class="data-row"><span class="label">開盤價</span><span class="value" id="resOpen"></span></div>
+            
+            <div class="data-row"><span class="label">今日最高</span><span class="value" id="resHigh" style="color:#dc3545;"></span></div>
+            <div class="data-row"><span class="label">今日最低</span><span class="value" id="resLow" style="color:#28a745;"></span></div>
+            
             <div class="data-row"><span class="label">漲跌幅</span><span class="value" id="resChange"></span></div>
             <div class="data-row"><span class="label">交易量</span><span class="value" id="resVol"></span></div>
             <div class="data-row">
@@ -55,33 +59,46 @@
         const symbol = document.getElementById('symbolInput').value;
         if(!symbol) return;
         
-        const response = await fetch(`/api/stock/${symbol}`);
-        const data = await response.json();
-        
-        if(data.error) { alert(data.error); return; }
+        try {
+            const response = await fetch(`/api/stock/${symbol}`);
+            const data = await response.json();
+            
+            if(data.error) { alert(data.error); return; }
 
-        document.getElementById('displayArea').style.display = 'block';
-        document.getElementById('resSymbol').innerText = data.symbol;
-        document.getElementById('resPrice').innerText = data.current_price;
-        document.getElementById('resOpen').innerText = data.open_price;
-        document.getElementById('resVol').innerText = data.volume;
-        
-        // 漲跌幅顏色判斷
-        const changeEl = document.getElementById('resChange');
-        changeEl.innerText = data.change_pct;
-        changeEl.style.color = data.change_pct.includes('+') ? '#dc3545' : '#28a745'; // 台灣習慣紅漲綠跌
+            document.getElementById('displayArea').style.display = 'block';
+            
+            // 1. 填入上方基本資訊
+            document.getElementById('resSymbol').innerText = data.symbol;
+            document.getElementById('resPrice').innerText = data.current_price;
+            document.getElementById('resOpen').innerText = data.open_price;
+            document.getElementById('resVol').innerText = data.volume;
+            
+            // 2. 填入最高與最低價
+            document.getElementById('resHigh').innerText = data.high_price;
+            document.getElementById('resLow').innerText = data.low_price;
+            
+            // 3. 漲跌幅顏色判斷
+            const changeEl = document.getElementById('resChange');
+            changeEl.innerText = data.change_pct;
+            changeEl.style.color = data.change_pct.includes('+') ? '#dc3545' : '#28a745';
 
-        // 趨勢標籤
-        const sentEl = document.getElementById('resSentiment');
-        sentEl.innerText = data.sentiment;
-        sentEl.style.backgroundColor = data.sentiment_color;
+            // 4. 趨勢標籤
+            const sentEl = document.getElementById('resSentiment');
+            sentEl.innerText = data.sentiment;
+            sentEl.style.backgroundColor = data.sentiment_color;
 
-        // 表格文字 (Textbox)
-        let text = "日期\t開盤\t收盤\t成交量\n";
-        data.history.forEach(h => {
-            text += `${h.date}\t${h.open}\t${h.close}\t${h.vol}\n`;
-        });
-        document.getElementById('rawDataTable').value = text;
+            // 5. 生成表格文字 (包含最高/最低)
+            let text = "日期\t開盤\t最高\t最低\t收盤\t成交量\n";
+            data.history.forEach(h => {
+                // 這裡的欄位名稱必須與 main.py 的 history_list 對應
+                text += `${h.date}\t${h.open}\t${h.high}\t${h.low}\t${h.close}\t${h.vol}\n`;
+            });
+            document.getElementById('rawDataTable').value = text;
+
+        } catch (e) {
+            console.error(e);
+            alert("查詢失敗，請檢查網路或後端服務");
+        }
     }
 
     function copyContent() {

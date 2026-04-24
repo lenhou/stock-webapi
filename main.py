@@ -54,20 +54,25 @@ async def get_stock(symbol: str):
                 prev_close = df['Close'].iloc[-2]
                 change_pct = ((latest['Close'] - prev_close) / prev_close) * 100
                 
-                # 格式化歷史數據用於前端顯示
+                # 1. 格式化歷史數據時，加入 high 和 low
                 history_list = []
                 for date, row in df.tail(10).iterrows():
                     history_list.append({
                         "date": date.strftime('%Y-%m-%d'),
                         "open": round(row['Open'], 2),
+                        "high": round(row['High'], 2),  # 加入這行
+                        "low": round(row['Low'], 2),    # 加入這行
                         "close": round(row['Close'], 2),
                         "vol": int(row['Volume'])
                     })
                 
+                # 2. 最後 return 的字典，也要加入當日的 high_price 和 low_price
                 return {
-                    "symbol": ticker_symbol, # 回傳完整代碼方便用戶確認
+                    "symbol": ticker_symbol,
                     "current_price": round(latest['Close'], 2),
                     "open_price": round(latest['Open'], 2),
+                    "high_price": round(latest['High'], 2),  # 加入這行
+                    "low_price": round(latest['Low'], 2),   # 加入這行
                     "change_pct": f"{change_pct:+.2f}%",
                     "volume": f"{int(latest['Volume']):,}",
                     "sentiment": sentiment_text,
